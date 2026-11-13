@@ -1,0 +1,9 @@
+entity_id,event_time,score,city,is_vip
+E001,2026-11-01T10:00:00+08:00,92.5,Beijing,true
+E001,2026-11-01T11:00:00+08:00,90.06,Beijing,true
+E002,2026-11-01T10:00:00+08:00,75.5,Shanghai,VIP
+E003,2026-11-01T10:00:00+08:00,60,Guangzhou,true
+E004,2026-11-01T10:00:00+08:00,33,Xian,false
+E006,2026-11-01T10:00:00+08:00,70,Hangzhou,true
+E007,2026-11-01T11:00:00+08:00,55,Chengdu,false
+E008,2026-11-01T10:00:00+08:00,50,Wuhan,true

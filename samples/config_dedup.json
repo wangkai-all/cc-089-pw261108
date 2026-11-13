@@ -1,0 +1,32 @@
+{
+  "name": "样例：重复按 mean/majority 处理",
+  "entity_column": "entity_id",
+  "event_time_column": "event_time",
+  "timezone": "+08:00",
+  "time_tolerance_seconds": 1800,
+  "null_policy": "strict",
+  "duplicate_strategy": "mean",
+  "default_abs_tolerance": 0.05,
+  "default_rel_tolerance": 0.0,
+  "default_decimal_precision": 2,
+  "accept_timezone_warning": true,
+  "features": [
+    {
+      "name": "score",
+      "dtype": "number"
+    },
+    {
+      "name": "city",
+      "dtype": "string",
+      "abs_tolerance": null,
+      "rel_tolerance": null,
+      "decimal_precision": null,
+      "duplicate_strategy": "majority"
+    },
+    {
+      "name": "is_vip",
+      "dtype": "bool",
+      "duplicate_strategy": "majority"
+    }
+  ]
+}

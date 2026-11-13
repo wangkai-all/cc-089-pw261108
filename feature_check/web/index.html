@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>特征一致性检查台（本地）</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◧</span>
+    <div>
+      <h1>特征一致性检查台</h1>
+      <p class="subtitle">离线特征值 × 线上快照 · 纯本地运行 · 不连接线上服务</p>
+    </div>
+  </div>
+  <div class="topbar-right">
+    <span id="health" class="badge badge-muted">连接中…</span>
+    <span class="badge badge-local">127.0.0.1 本地</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="datasource">① 数据源</button>
+  <button class="tab" data-tab="rules">② 比对规则</button>
+  <button class="tab" data-tab="results">③ 差异结果</button>
+  <button class="tab" data-tab="history">④ 运行历史与重算</button>
+</nav>
+
+<main>
+  <!-- ================= 数据源 ================= -->
+  <section id="tab-datasource" class="panel active">
+    <h2>导入同一批实体的离线值与线上快照</h2>
+    <p class="hint">仅支持本地 CSV（UTF-8）。文件只上传到本机服务进程，不会发往任何外部地址。</p>
+    <div class="upload-grid">
+      <div class="upload-card">
+        <h3>离线特征值</h3>
+        <input type="file" id="file-offline" accept=".csv">
+        <p class="path" id="path-offline">未选择文件</p>
+      </div>
+      <div class="upload-card">
+        <h3>线上快照（导出 CSV）</h3>
+        <input type="file" id="file-online" accept=".csv">
+        <p class="path" id="path-online">未选择文件</p>
+      </div>
+    </div>
+
+    <div id="tz-banner" class="banner banner-warn hidden"></div>
+
+    <div class="form-grid">
+      <label>实体主键列名
+        <input type="text" id="entity-column" value="entity_id">
+      </label>
+      <label>事件时间列名
+        <input type="text" id="time-column" value="event_time">
+      </label>
+      <label>期望时区（留空按数据推断；可填 +08:00 或 Asia/Shanghai）
+        <input type="text" id="timezone" placeholder="+08:00">
+      </label>
+      <label>检查名称
+        <input type="text" id="check-name" value="未命名检查">
+      </label>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="btn-run">开始比对</button>
+      <span id="run-status" class="run-status"></span>
+    </div>
+  </section>
+
+  <!-- ================= 规则 ================= -->
+  <section id="tab-rules" class="panel">
+    <h2>比对规则配置</h2>
+    <div class="rule-block">
+      <h3>全局规则</h3>
+      <div class="form-grid">
+        <label>数值绝对容差
+          <input type="number" step="any" id="abs-tol" value="0">
+        </label>
+        <label>数值相对容差（比例，如 0.01 = 1%）
+          <input type="number" step="any" id="rel-tol" value="0">
+        </label>
+        <label>小数精度（位数，先四舍五入再比较；留空不处理）
+          <input type="number" id="precision" placeholder="例如 2">
+        </label>
+        <label>时间容忍度（秒；as-of 命中行滞后超过它判时间错位）
+          <input type="number" step="any" id="time-tol" value="0">
+        </label>
+        <label>空值含义
+          <select id="null-policy">
+            <option value="strict">strict：空不自动相等（默认）</option>
+            <option value="lenient">lenient：两侧都空视为一致</option>
+            <option value="as_zero">as_zero：空按 0 参与比较</option>
+          </select>
+        </label>
+        <label>重复主键处理（绝不默认取最后一行）
+          <select id="dup-strategy">
+            <option value="fail">fail：发现重复即中止（默认）</option>
+            <option value="first">first：保留首行</option>
+            <option value="last">last：显式保留末行</option>
+            <option value="min">min：数值取最小</option>
+            <option value="max">max：数值取最大</option>
+            <option value="mean">mean：数值取均值</option>
+            <option value="median">median：数值取中位</option>
+            <option value="majority">majority：众数</option>
+          </select>
+        </label>
+      </div>
+      <div class="form-grid">
+        <label>重算时间范围 · 开始（含，ISO8601；留空不限）
+          <input type="text" id="range-start" placeholder="2026-11-01T00:00:00+08:00">
+        </label>
+        <label>重算时间范围 · 结束（含）
+          <input type="text" id="range-end" placeholder="2026-11-02T00:00:00+08:00">
+        </label>
+      </div>
+      <label class="checkline">
+        <input type="checkbox" id="accept-tz">
+        我已知悉时区提示并确认按当前时区解释继续比对（时区不一致时必须勾选）
+      </label>
+    </div>
+
+    <div class="rule-block">
+      <h3>特征级规则</h3>
+      <p class="hint">先在下方添加特征（需与 CSV 列名一致），可逐特征覆盖全局容差、精度、空值与重复策略。</p>
+      <div class="form-inline">
+        <input type="text" id="new-feature" placeholder="特征列名，如 score">
+        <select id="new-dtype">
+          <option value="auto">auto 自动推断</option>
+          <option value="number">number 数值</option>
+          <option value="string">string 字符串</option>
+          <option value="bool">bool 布尔</option>
+        </select>
+        <button class="btn" id="btn-add-feature">添加特征</button>
+      </div>
+      <table class="feature-table">
+        <thead>
+          <tr><th>特征</th><th>类型</th><th>绝对容差</th><th>相对容差</th>
+          <th>小数精度</th><th>空值语义</th><th>重复策略</th><th></th></tr>
+        </thead>
+        <tbody id="feature-rows"></tbody>
+      </table>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btn-save-rules">保存规则到当前检查</button>
+      <span id="rules-status" class="run-status"></span>
+    </div>
+  </section>
+
+  <!-- ================= 结果 ================= -->
+  <section id="tab-results" class="panel">
+    <h2>差异结果</h2>
+    <div id="summary-cards" class="cards"></div>
+
+    <div class="filters">
+      <label>分类
+        <select id="filter-category">
+          <option value="">全部</option>
+        </select>
+      </label>
+      <label>特征
+        <select id="filter-feature"><option value="">全部</option></select>
+      </label>
+      <label>实体
+        <input type="text" id="filter-entity" placeholder="实体 ID">
+      </label>
+      <button class="btn" id="btn-apply-filter">应用筛选</button>
+      <div class="spacer"></div>
+      <a class="btn btn-ghost" id="link-export">导出当前运行 CSV</a>
+      <a class="btn btn-ghost" id="link-export-diff">仅导出差异 CSV</a>
+    </div>
+
+    <div class="table-wrap">
+      <table class="result-table">
+        <thead>
+          <tr>
+            <th>实体</th><th>事件时间</th><th>特征</th><th>分类</th>
+            <th>离线原值</th><th>线上原值</th><th>说明</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="result-rows"></tbody>
+      </table>
+    </div>
+    <p id="result-empty" class="hint hidden">暂无结果，请先在“数据源”页执行比对。</p>
+  </section>
+
+  <!-- ================= 历史 ================= -->
+  <section id="tab-history" class="panel">
+    <h2>运行历史与增量重算</h2>
+    <p class="hint">规则更新后只重算受影响特征与时间范围，未受影响单元格复用上一次结果；每次运行均不可变、可点回具体值变化。</p>
+    <div class="table-wrap">
+      <table class="history-table">
+        <thead>
+          <tr><th>运行 ID</th><th>时间</th><th>名称</th><th>单元格</th><th>差异</th>
+          <th>父运行</th><th>操作</th></tr>
+        </thead>
+        <tbody id="history-rows"></tbody>
+      </table>
+    </div>
+
+    <div id="recompute-panel" class="rule-block hidden">
+      <h3>基于运行 <span id="recompute-parent"></span> 增量重算</h3>
+      <p class="hint">请先在“比对规则”页调整容差/精度/空值/时间范围，再点击下方按钮。系统会对比规则指纹，仅重算变化部分。</p>
+      <div class="actions">
+        <button class="btn btn-primary" id="btn-recompute">执行增量重算</button>
+        <button class="btn btn-ghost" id="btn-view-diff">查看与父运行的值变化</button>
+      </div>
+      <div id="recompute-note" class="banner"></div>
+    </div>
+
+    <div id="diff-panel" class="rule-block hidden">
+      <h3>值变化明细（新运行 vs 父运行）</h3>
+      <div class="table-wrap">
+        <table class="result-table">
+          <thead><tr><th>实体</th><th>时间</th><th>特征</th><th>变化</th>
+          <th>旧分类</th><th>新分类</th><th>旧值(离/线)</th><th>新值(离/线)</th></tr></thead>
+          <tbody id="diff-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- 下钻弹窗 -->
+<div id="modal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h3>差异详情</h3>
+      <button class="modal-close" id="modal-close">×</button>
+    </div>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

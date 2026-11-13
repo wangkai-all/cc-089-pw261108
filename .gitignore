@@ -31,3 +31,8 @@ test-results/
 *.sqlite3-wal
 *.sqlite3-shm
 *.sqlite3-journal
+
+# 特征检查台本地运行数据
+.feature_check_data/
+.feature_check_data*/
+/fc_data/
